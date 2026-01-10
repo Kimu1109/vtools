@@ -22,6 +22,7 @@ if [ "$1" = "-help" -o "$1" = "-h" ]; then
 fi
 
 IN="$1"
+OUT="-"
 if [ "$2" = "-o" -o "$2" = "-output" ]; then
   OUT="${3:--}"
 fi
@@ -40,6 +41,6 @@ fi
 
 echo "[vmp4] start video mp4" >&2
 
-ffmpeg -y -i "$INPUT" -vcodec $ENCODING "$OUTPUT" -loglevel error -stats
+ffmpeg -y -i "$INPUT" -f mp4 -vcodec $ENCODING "$OUTPUT" -loglevel error -stats
 
 echo "[vmp4] finish video mp4" >&2

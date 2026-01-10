@@ -22,6 +22,7 @@ if [ "$1" = "-help" -o "$1" = "-h" ]; then
 fi
 
 IN="${1:--}"
+OUT="-"
 if [ "$2" = "-o" -o "$2" = "-output" ]; then
   OUT="${3:--}"
 fi

@@ -23,6 +23,7 @@ fi
 
 IN="$1"
 INPUT2="$2"
+OUT="-"
 if [ "$3" = "-o" -o "$3" = "-output" ]; then
   OUT="${4:--}"
 fi

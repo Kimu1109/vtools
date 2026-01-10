@@ -24,6 +24,7 @@ fi
 IN="$1"
 START="$2"
 END="$3"
+OUT="-"
 if [ "$4" = "-o" -o "$4" = "-output" ]; then
   OUT="${5:--}"
 fi
