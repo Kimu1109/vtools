@@ -1,0 +1,45 @@
+#!/bin/bash
+
+app_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$app_path/package/check-ffmpeg.sh"
+source "$app_path/package/read-settings.sh"
+source "$app_path/package/check-common-args.sh"
+
+if [ "$1" = "-help" -o "$1" = "-h" ]; then
+  echo "NAME" >&2
+  echo -e "\tvmp4 - Convert input to mp4" >&2
+  echo "" >&2
+  echo "SYNOPSIS" >&2
+  echo -e "\tvmp4 INPUT(-) [OPTIONS]" >&2
+  echo -e "\tIf using pipe input, INPUT should be \"-\"" >&2
+  echo "" >&2
+  echo "OPTIONS" >&2
+  echo -e "\t-h, -help\t\tShow help" >&2
+  echo -e "\t-v, -version\t\tShow version" >&2
+  echo -e "\t-o, -output FILE\tOutput file" >&2
+  echo -e "\t-copyright\t\tShow copyright" >&2
+  exit 1
+fi
+
+IN="$1"
+if [ "$2" = "-o" -o "$2" = "-output" ]; then
+  OUT="${3:--}"
+fi
+ENCODING=$(readSetting encoding)
+
+if [ "$IN" = "-" ]; then
+  INPUT="pipe:0"
+else
+  INPUT="$IN"
+fi
+if [ "$OUT" = "-" ]; then
+  OUTPUT="pipe:1"
+else
+  OUTPUT="$OUT"
+fi
+
+echo "[vmp4] start video mp4" >&2
+
+ffmpeg -y -i "$INPUT" -vcodec $ENCODING "$OUTPUT" -loglevel error -stats
+
+echo "[vmp4] finish video mp4" >&2

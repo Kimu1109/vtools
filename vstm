@@ -1,0 +1,31 @@
+#!/bin/bash
+set -e
+
+app_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$app_path/package/check-ffmpeg.sh"
+source "$app_path/package/check-common-args.sh"
+
+if [ "$1" = "-help" -o "$1" = "-h" ]; then
+  echo "NAME" >&2
+  echo -e "\tvstm - Convert to a pipe-compatible mp4 file" >&2
+  echo "" >&2
+  echo "SYNOPSIS" >&2
+  echo -e "\tvstm INPUT [OPTIONS]" >&2
+  echo "" >&2
+  echo "OPTIONS" >&2
+  echo -e "\t-h, -help\tShow help" >&2
+  echo -e "\t-v, -version\tShow version" >&2
+  echo -e "\t-copyright\tShow copyright" >&2
+  exit 1
+fi
+
+echo "[vstm] start video streaming" >&2
+
+ffmpeg -i "$1" \
+  -movflags +frag_keyframe+empty_moov \
+  -c copy \
+  -loglevel error \
+  -stats \
+  -f mp4 pipe:1
+
+echo "[vstm] finish video streaming" >&2

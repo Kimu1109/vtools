@@ -1,0 +1,56 @@
+#!/bin/bash
+
+app_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$app_path/package/check-ffmpeg.sh"
+source "$app_path/package/read-settings.sh"
+source "$app_path/package/check-common-args.sh"
+
+if [ "$1" = "-help" -o "$1" = "-h" ]; then
+  echo "NAME" >&2
+  echo -e "\tvdsp - Input is doubled speed." >&2
+  echo "" >&2
+  echo "SYNOPSIS" >&2
+  echo -e "\tvdsp INPUT(-) [OPTIONS]" >&2
+  echo -e "\tIf using pipe input, INPUT should be \"-\""
+  echo "" >&2
+  echo "OPTIONS" >&2
+  echo -e "\t-h, -help\t\tShow help" >&2
+  echo -e "\t-v, -version\t\tShow version" >&2
+  echo -e "\t-o, -output FILE\tOutput file" >&2
+  echo -e "\t-copyright\t\tShow copyright" >&2
+  exit 1
+fi
+
+IN="$1"
+if [ "$2" = "-o" -o "$2" = "-output" ]; then
+  OUT="${3:--}"
+fi
+
+if [ "$IN" = "-" ]; then
+  INPUT="pipe:0"
+else
+  INPUT="$IN"
+  source "$app_path/package/copy-right.sh"
+fi
+if [ "$OUT" = "-" ]; then
+  OUTPUT="pipe:1"
+else
+  OUTPUT="$OUT"
+fi
+
+ENCODING=$(readSetting encoding)
+
+echo "[vdsp] start video double speed" >&2
+
+ffmpeg -y \
+  -i "$INPUT" \
+  -filter_complex \
+"[0:v]setpts=0.5*PTS[v];[0:a]atempo=2.0[a]" \
+  -map "[v]" -map "[a]?" \
+  -f mp4 -movflags frag_keyframe+empty_moov \
+  -loglevel error \
+  -stats \
+  -c:v $ENCODING \
+  "$OUTPUT"
+
+echo "[vdsp] finish video double speed" >&2

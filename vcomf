@@ -1,0 +1,73 @@
+#!/bin/bash
+
+app_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$app_path/package/stop-watch.sh"
+source "$app_path/package/check-ffmpeg.sh"
+source "$app_path/package/progress-ffmpeg.sh"
+source "$app_path/package/copy-right.sh"
+source "$app_path/package/check-common-args.sh"
+source "$app_path/package/read-settings.sh"
+
+bar_length=40
+
+if [ "$1" = "-help" -o "$1" = "-h" ]; then
+  echo "NAME" >&2
+  echo -e "\tvcomf - Compress FILE" >&2
+  echo "" >&2
+  echo "SYNOPSIS" >&2
+  echo -e "\tvcoms INPUT_FILE [OPTIONS]" >&2
+  echo "" >&2
+  echo "OPTIONS" >&2
+  echo -e "\t-h, -help\t\tShow help" >&2
+  echo -e "\t-v, -version\t\tShow version" >&2
+  echo -e "\t-copyright\t\tShow copyright" >&2
+  exit 1
+fi
+if [ -z "$1" ]; then
+    echo -e "\033[0;31mFile path not set[invalid parameter]\033[0;39m"
+    echo -e "\033[0;31mExit status : 2\033[0;39m"
+    exit 2
+fi
+
+start_watch
+
+filename="$1"
+ENCODING=$(readSetting encoding)
+readonly destination_mbit_size=79
+
+echo -e "\033[0;32mstep.1 resize\033[0;39m"
+
+calc_duration "$filename"
+ffmpeg -i "$filename" -vf scale=854:-1 resize.mp4 -c:v $ENCODING -y -progress - -nostats 2>&1 | progress_ffmpeg
+
+if [ ! -e "resize.mp4" ]; then
+    echo -e "\033[0;31mResize failed[resize.mp4 doesn't exist]\033[0;39m"
+    echo -e "\033[0;31mExist status : 404\033[0;39m"
+    exit 404
+fi
+
+echo ""
+echo -e "\033[0;35mstep.2 calculate\033[0;39m"
+
+calc_duration resize.mp4
+ffmpeg -i resize.mp4 -vn -acodec copy temp_audio.mka -y -progress - -nostats 2>&1 | progress_ffmpeg
+audio_bitrate=$(ffprobe -v error -show_entries format=bit_rate -of default=noprint_wrappers=1:nokey=1 temp_audio.mka)
+rm temp_audio.mka
+
+video_bitrate=$(echo "scale=2; (($destination_mbit_size / $duration) - ($audio_bitrate / 1000 / 1000)) * 1000" | bc -l)
+
+echo ""
+echo -e "\033[0;36mstep.3 encoding\033[0;39m"
+
+calc_duration resize.mp4
+ffmpeg -i resize.mp4 -c:v $ENCODING -b:v ${video_bitrate}k -pass 1 -an -f mp4 /dev/null -y -progress - -nostats 2>&1 | progress_ffmpeg
+echo ""
+ffmpeg -i resize.mp4 -c:v $ENCODING -b:v ${video_bitrate}k -pass 2 -c:a aac -b:a $(($audio_bitrate / 1000))k "${filename%.*}-compressed.mp4" -y -progress - -nostats 2>&1 | progress_ffmpeg
+
+rm resize.mp4
+
+stop_watch
+
+echo ""
+echo "result is in ${filename%.*}-compressed.mp4"
+done_watch

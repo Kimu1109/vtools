@@ -1,0 +1,14 @@
+#!/bin/bash
+
+echo "Recommendation encoder:"
+if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_nvenc"; then
+    echo "h264_nvenc"
+elif ffmpeg -hide_banner -encoders | grep -q "h264_qsv"; then
+    echo "h264_qsv"
+else
+    echo "libx264"
+fi
+echo ""
+app_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo "Encoder Configuration:"
+echo "$app_path/package/config.ini"

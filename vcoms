@@ -1,0 +1,64 @@
+#!/bin/bash
+
+app_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$app_path/package/check-ffmpeg.sh"
+source "$app_path/package/read-settings.sh"
+source "$app_path/package/check-common-args.sh"
+
+if [ "$1" = "-help" -o "$1" = "-h" ]; then
+  echo "NAME" >&2
+  echo -e "\tvcoms - Compress input" >&2
+  echo "" >&2
+  echo "SYNOPSIS" >&2
+  echo -e "\tvcoms INPUT(-) [OPTIONS]" >&2
+  echo -e "\tIf using pipe input, INPUT should be \"-\"" >&2
+  echo "" >&2
+  echo "OPTIONS" >&2
+  echo -e "\t-h, -help\t\tShow help" >&2
+  echo -e "\t-v, -version\t\tShow version" >&2
+  echo -e "\t-o, -output FILE\tOutput file" >&2
+  echo -e "\t-copyright\t\tShow copyright" >&2
+  exit 1
+fi
+
+IN="${1:--}"
+if [ "$2" = "-o" -o "$2" = "-output" ]; then
+  OUT="${3:--}"
+fi
+ENCODING=$(readSetting encoding)
+
+if [ "$IN" = "-" ]; then
+  INPUT="pipe:0"
+else
+  INPUT="$IN"
+fi
+
+if [ "$OUT" = "-" ]; then
+  OUTPUT="pipe:1"
+else
+  OUTPUT="$OUT"
+fi
+
+echo "[vcoms] start streaming video compression" >&2
+
+ffmpeg -y \
+  -i "$INPUT" \
+  -loglevel error \
+  -vf "scale=720:-2" \
+  -c:v $ENCODING \
+  -profile:v high \
+  -level 4.0 \
+  -preset slow \
+  -crf 30 \
+  -maxrate 600k \
+  -bufsize 1200k \
+  -pix_fmt yuv420p \
+  -movflags frag_keyframe+empty_moov \
+  -c:a aac \
+  -ac 2 \
+  -f mp4 \
+  -b:a 64k \
+  -stats \
+  "$OUTPUT"
+
+echo "[vcoms] finish streaming video compression" >&2

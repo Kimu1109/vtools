@@ -1,0 +1,101 @@
+#!/bin/bash
+
+app_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$app_path/package/check-ffmpeg.sh"
+source "$app_path/package/read-settings.sh"
+source "$app_path/package/check-common-args.sh"
+
+if [ $# -lt 2 -o "$1" = "-help" -o "$1" = "-h" ]; then
+  echo "NAME" >&2
+  echo -e "\tvcat - Concat input1 and input2" >&2
+  echo "" >&2
+  echo "SYNOPSIS" >&2
+  echo -e "\tvcat INPUT1(-) INPUT2 [OPTIONS]" >&2
+  echo -e "\tIf using pipe input1, INPUT1 should be \"-\". But INPUT2 allows only a file." >&2
+  echo "" >&2
+  echo "OPTIONS" >&2
+  echo -e "\t-h, -help\t\tShow help" >&2
+  echo -e "\t-v, -version\t\tShow version" >&2
+  echo -e "\t-o, -output FILE\tOutput file" >&2
+  echo -e "\t-copyright\t\tShow copyright" >&2
+  exit 1
+fi
+
+IN="$1"
+INPUT2="$2"
+if [ "$3" = "-o" -o "$3" = "-output" ]; then
+  OUT="${4:--}"
+fi
+if [ "$IN" = "-" ]; then
+  INPUT="pipe:0"
+else
+  INPUT="$IN"
+fi
+if [ "$OUT" = "-" ]; then
+  OUTPUT="pipe:1"
+else
+  OUTPUT="$OUT"
+fi
+
+
+echo "" >&2
+
+INPUT_TMP=$(mktemp /tmp/resized1.XXXXXX.mp4)
+INPUT_TMP2=$(mktemp /tmp/resized2.XXXXXX.mp4)
+LIST=$(mktemp /tmp/resizedlist.XXXXXX.txt)
+
+WIDTH=$(readSetting default_width)
+HEIGHT=$(readSetting default_height)
+FPS=$(readSetting default_fps)
+ENCODING=$(readSetting encoding)
+
+echo "[vcat] start video concat" >&2
+echo "[vcat] normalize input 1" >&2
+ffmpeg -y \
+  -i "$INPUT" \
+  -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 \
+  -map 0:v:0 \
+  -map 0:a:0? \
+  -map 1:a:0 \
+  -shortest \
+  -vf "scale=$WIDTH:$HEIGHT:force_original_aspect_ratio=decrease,\
+pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=$FPS" \
+  -c:v $ENCODING -pix_fmt yuv420p \
+  -c:a aac -ar 48000 -ac 2 \
+  -loglevel error \
+  -stats \
+  "$INPUT_TMP"
+echo "[vcat] normalize input 2" >&2
+ffmpeg -y \
+  -i "$INPUT2" \
+  -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 \
+  -map 0:v:0 \
+  -map 0:a:0? \
+  -map 1:a:0 \
+  -shortest \
+  -vf "scale=$WIDTH:$HEIGHT:force_original_aspect_ratio=decrease,\
+pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=$FPS" \
+  -c:v $ENCODING -pix_fmt yuv420p \
+  -c:a aac -ar 48000 -ac 2 \
+  -loglevel error \
+  -stats \
+  "$INPUT_TMP2"
+
+echo "[vcat] concat" >&2
+
+printf "file '%s'\n" "$INPUT_TMP" "$INPUT_TMP2" > "$LIST"
+
+ffmpeg -y \
+  -f concat -safe 0 \
+  -i "$LIST" \
+  -c:v copy \
+  -c:a aac \
+  -b:a 128k \
+  -movflags frag_keyframe+empty_moov \
+  -c:v $ENCODING \
+  -f mp4 \
+  -loglevel error \
+  -stats \
+  "$OUTPUT"
+
+echo "[vcat] finish video concat" >&2

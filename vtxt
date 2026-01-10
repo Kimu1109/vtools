@@ -1,0 +1,103 @@
+#!/bin/bash
+set -e
+
+app_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$app_path/package/check-ffmpeg.sh"
+source "$app_path/package/read-settings.sh"
+source "$app_path/package/check-common-args.sh"
+
+if [ $# -lt 2 -o "$1" = "-help" -o "$1" = "-h" ]; then
+  echo "NAME" >&2
+  echo -e "\tvtxt - Generate and synthesize subtitles or titles" >&2
+  echo "" >&2
+  echo "SYNOPSIS" >&2
+  echo -e "\tvtxt TEXT DURATION_SEC [OPTIONS]" >&2
+  echo "" >&2
+  echo "OPTIONS" >&2
+  echo -e "\t-h, -help\t\tShow help" >&2
+  echo -e "\t-v, -version\t\tShow version" >&2
+  echo -e "\t-o, -output FILE\tOutput file" >&2
+  echo -e "\t-s, -subtitle\t\tEnable subtitle mode" >&2
+  echo -e "\t-b, -background COLOR\tSet background color if using generate mode (default color is black)" >&2
+  echo -e "\t-c, -color COLOR\tSet text color (default color is white)" >&2
+  echo -e "\t-copyright\t\tShow copyright" >&2
+  exit 1
+fi
+TEXT="$1"
+DURATION="$2"
+shift 2
+OUT="-"
+SUBTITLE=false
+BACKGROUND="black"
+COLOR="white"
+POS=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -o|-output)
+            OUT="$2"
+            shift 2
+            ;;
+        -s|-subtitle)
+            SUBTITLE=true
+            shift 1
+            ;;
+        -b|-background)
+            BACKGROUND="$2"
+            shift 2
+            ;;
+        -c|-color)
+            COLOR="$2"
+            shift 2
+            ;;
+        *)
+            echo "unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+FONT=$(fc-match sans-serif -f '%{file}\n')
+
+WIDTH=$(readSetting default_width)
+HEIGHT=$(readSetting default_height)
+ENCODING=$(readSetting encoding)
+
+if [ -z "$FONT" ]; then
+  echo "Failed to find system default font" >&2
+  exit 1
+fi
+
+if [ -p /dev/stdin ]; then
+  # stdin なし → 新規生成
+  INPUT=(-i pipe:0)
+else
+  # stdin あり → 合成
+  INPUT=(-f lavfi -i "color=c=$BACKGROUND:s=${WIDTH}x${HEIGHT}:d=$DURATION")
+fi
+if [ "$OUT" = "-" ]; then
+  OUTPUT="pipe:1"
+else
+  OUTPUT="$OUT"
+fi
+if $SUBTITLE ; then
+  POS=":x=(w-text_w)/2:y=h-text_h-5"
+  FONTSIZE=32
+else
+  POS=":x=(w-text_w)/2:y=(h-text_h)/2"
+  FONTSIZE=72
+fi
+
+echo "[vtxt] start video text" >&2
+
+ffmpeg -y \
+  "${INPUT[@]}" \
+  -vf "drawtext=fontfile=$FONT:text=$TEXT:fontcolor=$COLOR:fontsize=${FONTSIZE}$POS" \
+  -f mp4 \
+  -c:v $ENCODING \
+  -loglevel error \
+  -stats \
+  -movflags frag_keyframe+empty_moov \
+  "$OUTPUT"
+
+echo "[vtxt] finish video text" >&2
