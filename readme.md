@@ -29,8 +29,8 @@ These scripts require [ffmpeg](https://ffmpeg.org/ffmpeg.html) and [ffprobe](htt
 | --------- | ------------------------ | ------------------------------------------------- |
 | vcat      | Video Concat             | Connecting Video 1 and Video 2                    |
 | vcodec    | Video Codec              | Showing recommendation Video Codec                |
-| vcomf     | Video Compression File   | Compress **FILE** to 10MB                         |
-| vcoms     | Video Compression Stream | Compress **PIPE**                                 |
+| vcomf     | Video Compression File   | Compress Video from a **FILE** to 10MB            |
+| vcoms     | Video Compression Stream | Compress Video from **PIPE**                      |
 | vcut      | Video Cut                | Cutting Video                                     |
 | vdsp      | Video Double Speed       | Doubling Video speed                              |
 | vmp4      | Video .mp4               | Converting to a pipe-**incompatible** `.mp4` file |
